@@ -1,0 +1,9 @@
+[theme]
+primaryColor = "#4ade80"            # 버튼 색상 (초록색)
+backgroundColor = "#fefce8"         # 배경 기본색 (연한 노랑)
+secondaryBackgroundColor = "#fefce8" # 사이드바 배경 (연한 노랑)
+textColor = "#451a03"               # 글자색 (진한 갈색)
+font = "sans serif"
+
+[server]
+runOnSave = true
