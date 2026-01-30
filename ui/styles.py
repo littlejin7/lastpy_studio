@@ -27,12 +27,12 @@ def apply_custom_css():
         }
 
         .stButton > button {
-            background-color: #4ade80 !important;
-            color: #14532d !important;
+            background-color: #3bc771 !important;
+            color: white !important;
             border-radius: 2rem !important;
             border: none !important;
             padding: 16px 24px !important;
-            box-shadow: 0 5px 0 #15803d !important;
+            box-shadow: 0 5px 0 #2d9a58 !important;
             transition: all 0.1s !important;
             width: 100%;
         }
@@ -49,7 +49,7 @@ def apply_custom_css():
         }
         
         .stButton > button:hover {
-            background-color: #86efac !important;
+            background-color: #45d67d !important;
         }
 
         .result-box {
@@ -66,6 +66,22 @@ def apply_custom_css():
             font-family: 'Fredoka', sans-serif !important;
             font-weight: 800 !important;
             color: #451a03 !important;
+        }
+
+        /* 여기에 새로 드린 탭 디자인 코드를 추가하세요! */
+        .stTabs [data-baseweb="tab-list"] button {
+            font-family: 'Fredoka', sans-serif !important;
+            font-weight: 700 !important;
+            color: #451a03 !important;
+        }
+
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            color: #2d9a58 !important;
+            border-bottom-color: #2d9a58 !important;
+        }
+
+        .stTabs [data-baseweb="tab-highlight-checks"] {
+            background-color: #2d9a58 !important;
         }
         </style>
         """,
