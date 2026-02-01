@@ -1,23 +1,64 @@
 import ollama
 from modules.prompts import PERSONA_PROMPTS
 
-def run(persona_key, trend_info, question_ko):
-    # 1. 선택된 페르소나 내용 가져오기
+# [옵션 설정] 문맥 길이 확장 (중간에 말 끊김 방지용)
+AI_OPTIONS = {'num_ctx': 2000}
+
+# [기능 1] 제목(훅) 3개만 먼저 뽑아오기
+def generate_titles(persona_key, trend_info, question_ko):
     target_persona = PERSONA_PROMPTS[persona_key]
     
-    # 2. AI에게 명령할 전체 프롬프트 조립
-    full_prompt = f"""
+    prompt = f"""
     Act as a YouTube Shorts Strategist.
     # PERSONA: {target_persona}
     # TREND INFO: {trend_info}
-    # TASK: Create a 'Viral Shorts Package' for "{question_ko}".
+    # TOPIC: {question_ko}
     
-    Please provide:
-    1. Titles: 3 options (Viral style).
-    2. Script: 60s, Time-stamped, following the persona's tone strictly.
-    3. Tags: 10 hashtags in a SINGLE LINE.
+    Task: Create 3 Viral Short Video Titles (Hooks) strictly related to the topic.
+    Output format:
+    1. [Title 1]
+    2. [Title 2]
+    3. [Title 3]
+    (Do not write the script yet, ONLY titles)
     """
     
-    # 3. AI 실행
-    res = ollama.chat(model="gemma3:latest", messages=[{"role": "user", "content": full_prompt}])
+    # 기억력 옵션 추가
+    res = ollama.chat(
+        model="gemma3:latest", 
+        messages=[{"role": "user", "content": prompt}],
+        options=AI_OPTIONS
+    )
+    
+    # 결과 파싱 (텍스트 -> 리스트 변환)
+    raw_titles = res["message"]["content"].strip().split("\n")
+    clean_titles = [t.strip() for t in raw_titles if t.strip()]
+    
+    return clean_titles
+
+# [기능 2] 선택된 제목으로 대본 쓰기 (루프 규칙 제거됨)
+def generate_script(persona_key, selected_titles, trend_info):
+    target_persona = PERSONA_PROMPTS[persona_key]
+    
+    # 리스트를 문자열로 변환
+    titles_str = ", ".join(selected_titles)
+    
+    prompt = f"""
+    Act as a Scriptwriter.
+    # PERSONA: {target_persona}
+    # SELECTED HOOKS: {titles_str} (User selected these!)
+    # TREND INFO: {trend_info}
+    
+    Task: Write a 60s Shorts Script that integrates the selected hooks perfectly.
+    
+    Please provide:
+    1. Script: 60s, Time-stamped, strictly following the persona's tone.
+    2. Tags: 10 hashtags in a SINGLE LINE.
+    """
+    
+    # 기억력 옵션 추가
+    res = ollama.chat(
+        model="gemma3:latest", 
+        messages=[{"role": "user", "content": prompt}],
+        options=AI_OPTIONS
+    )
     return res["message"]["content"]

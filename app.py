@@ -1,37 +1,59 @@
 import streamlit as st
 import os
 import sys
+
+# 모듈 경로 강제 인식
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
 from dotenv import load_dotenv
 from tavily import TavilyClient
 
-# [경로 설정] modules, utils, ui 폴더를 인식시키기 위함
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+# 모듈 임포트
+try:
+    from modules.ui import styles, sidebar, components
+    from modules import prompts, trans, search, draft, seo
+except ImportError:
+    import styles, sidebar, components
+    import prompts, trans, search, draft, seo
 
-# [모듈 불러오기] 분리된 ui 모듈과 기존 로직 모듈들
-from ui import styles, sidebar, components
-from modules import prompts, trans, search, draft, seo
-
-# --------------------------------------------------------------------------
-# 1. 초기 설정 (디자인 & API)
-# --------------------------------------------------------------------------
 load_dotenv()
 api_key = os.getenv("TAVILY_API_KEY")
 
-# 페이지 기본 설정
 st.set_page_config(page_title="Last.py Studio", page_icon="⚡", layout="wide")
 
-# [ui/styles.py]에서 정의한 CSS 적용
+# CSS 및 사이드바 적용
 styles.apply_custom_css()
-
-# --------------------------------------------------------------------------
-# 2. 사이드바 렌더링 (ui/sidebar.py)
-# --------------------------------------------------------------------------
-# 사이드바를 호출하고 사용자가 선택한 페르소나 키를 받아옵니다.
 selected_persona_key = sidebar.render_sidebar()
 
-# --------------------------------------------------------------------------
-# 3. 메인 화면 구성
-# --------------------------------------------------------------------------
+# --- [UI 개선] Generate 버튼 높이 조절 전용 CSS ---
+st.markdown("""
+    <style>
+    /* 버튼의 세로 높이를 입력창과 비슷하게 슬림하게 조정 */
+    div.stButton > button {
+        height: 42px !important;      /* 높이 축소 */
+        min-height: 42px !important;  /* 최소 높이 강제 고정 */
+        line-height: 42px !important; /* 텍스트 수직 중앙 정렬 */
+        padding-top: 0px !important;
+        padding-bottom: 0px !important;
+        font-size: 0.95rem !important;
+        margin-top: 1px !important;    /* 미세한 위치 보정 */
+    }
+    
+    /* 입력창과 버튼의 수직 정렬을 맞추기 위해 컬럼 정렬 수정 */
+    div[data-testid="column"] {
+        display: flex;
+        align-items: center;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 세션 상태 초기화
+if "script" not in st.session_state: st.session_state["script"] = ""
+if "titles" not in st.session_state: st.session_state["titles"] = []
+
+# --- [상단] 메인 타이틀 ---
 st.markdown("""
     <div class="playful-container">
         <h1 style="font-size: 3rem; margin: 0;">YouTube Shorts Script Generator</h1>
@@ -39,78 +61,49 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# 입력 필드 레이아웃
-col1, col2 = st.columns([1, 2.5])
+# --- [중단] 입력칸 + 버튼 한 줄 배치 섹션 ---
+input_col, btn_col = st.columns([4, 1])
 
-with col1:
-    selected_topic = st.selectbox("카테고리 선택", options=list(prompts.TOPIC_CONFIG.keys()))
+with input_col:
+    cat_col, text_col = st.columns([1, 2])
+    with cat_col:
+        selected_topic = st.selectbox("카테고리", options=list(prompts.TOPIC_CONFIG.keys()), label_visibility="collapsed")
+    with text_col:
+        placeholder_text = prompts.TOPIC_CONFIG[selected_topic]["placeholder"]
+        question_ko = st.text_input("주제 입력", placeholder=placeholder_text, key="input_topic", label_visibility="collapsed")
 
-with col2:
-    placeholder_text = prompts.TOPIC_CONFIG[selected_topic]["placeholder"]
-    question_ko = st.text_input("주제 입력", placeholder=placeholder_text, label_visibility="hidden")
+with btn_col:
+    # 높이가 줄어든 ✨ Generate 버튼
+    start_trigger = st.button("✨ Generate", type="primary", use_container_width=True)
 
-# 버튼 레이아웃 (카테고리 박스 폭에 맞춤)
-btn_col1, btn_col2 = st.columns([1, 2.5])
-with btn_col1:
-    start_trigger = st.button("✨ Generate")
-
-# --------------------------------------------------------------------------
-# 4. 실행 프로세스
-# --------------------------------------------------------------------------
 if start_trigger:
     if not question_ko.strip():
-        st.warning(f"{selected_topic} 관련 주제를 입력해주세요!")
-    elif not api_key:
-        st.error("🔑 .env 파일을 확인해주세요 (API Key 없음)")
+        st.warning("주제를 입력해주세요!")
     else:
-        try:
+        with st.spinner("🔍 분석 및 제목 생성 중..."):
             tavily_client = TavilyClient(api_key=api_key)
+            translation = trans.run(question_ko)
+            trend_data = search.run(tavily_client, selected_topic, question_ko, translation)
+            titles = draft.generate_titles(selected_persona_key, trend_data, question_ko)
+            
+            st.session_state["titles"] = titles
+            st.session_state["trends"] = trend_data
 
-            with st.spinner("🔍 분석 중..."):
-                translation = trans.run(question_ko)
+# 제목 선택 UI
+selected_titles = components.render_title_selector(st.session_state.get("titles"))
 
-            with st.spinner("🌍 트렌드 검색 중..."):
-                trend_data = search.run(tavily_client, selected_topic, question_ko, translation)
+if selected_titles:
+    with st.spinner("✍️ 대본 작성 중..."):
+        final_script = draft.generate_script(selected_persona_key, selected_titles, st.session_state["trends"])
+        st.session_state["script"] = final_script
+        st.rerun()
 
-            with st.spinner("✍️ 대본 작성 중..."):
-                final_script = draft.run(selected_persona_key, trend_data, question_ko)
-
-            with st.spinner("📊 SEO 분석 중..."):
-                seo_result = seo.run(final_script)
-
-            # 세션 상태 업데이트
-            st.session_state.update({
-                "generated": True, 
-                "script": final_script, 
-                "seo_result": seo_result, 
-                "trends": trend_data
-            })
-            st.balloons()
-
-        except Exception as e:
-            st.error(f"오류가 발생했습니다: {e}")
-
-# --------------------------------------------------------------------------
-# 5. 결과 출력 구역
-# --------------------------------------------------------------------------
-if st.session_state.get("generated"):
-    tab1, tab2, tab3 = st.tabs(["📝 스크립트", "📊 SEO 점수", "📈 트렌드 분석"])
+# --- [하단] 통합 워크스페이스 ---
+if st.session_state["script"]:
+    st.markdown("---")
+    updated_content = components.render_action_buttons(st.session_state["script"])
     
-    with tab1:
-        # [ui/components.py] 복사/다운로드 커스텀 버튼 렌더링
-        components.render_action_buttons(st.session_state["script"])
-        
-        # 스크립트 출력 박스
-        st.markdown(
-            f'<div class="result-box" style="margin-top: 0;">{st.session_state["script"]}</div>', 
-            unsafe_allow_html=True
-        )
+    if updated_content:
+        st.session_state["script"] = updated_content
 
-    with tab2:
-        st.markdown(st.session_state["seo_result"])
-
-    with tab3:
-        st.info(st.session_state["trends"])
-
-# 하단 푸터
-st.markdown('<div style="text-align: center; padding: 2rem; opacity: 0.5;">© 2026 LAST.PY_STUDIO</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align: center; padding: 2rem; opacity: 0.3;">© 2026 LAST.PY_STUDIO</div>', unsafe_allow_html=True)
