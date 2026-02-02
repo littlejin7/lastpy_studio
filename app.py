@@ -23,6 +23,7 @@ except ImportError:
     import modules.seo as seo
     import modules.prompts_kr as prompts_kr
     from utils import seo_tools
+#from modules.ui.analyzer import render_seo_analyzer_dashboard
 
 load_dotenv()
 api_key = os.getenv("TAVILY_API_KEY")
@@ -112,18 +113,29 @@ if selected_titles:
 if st.session_state["script"]:
     st.markdown("---")
     
-    # 1. 편집기 (components.py 내부에서 복사 버튼 렌더링 포함)
-    updated_content = components.render_action_buttons(st.session_state["script"])
+    # 1. SEO 데이터 준비 (테스트용 데이터, 실제로는 분석 엔진과 연동 가능)
+    seo_display_data = {
+        "score": 92, 
+        "volume": "High", 
+        "rewatch": 78
+    }
+
+    # 2. 통합 워크스페이스 호출 (내부에 대시보드와 에디터가 포함됨)
+    # render_action_buttons 내부에서 대시보드와 에디터가 순서대로 배치됩니다.
+    updated_content = components.render_action_buttons(
+        st.session_state["script"], 
+        seo_data=seo_display_data
+    )
+    
     if updated_content:
         st.session_state["script"] = updated_content
 
-    # 2. SEO 분석 섹션 (중복 제목 제거)
-    with st.spinner("AI가 SEO 지표를 정밀 분석 중입니다..."):
-        # seo.run()이 반환하는 결과 내부에 이미 "## 📊 SEO Score Analysis" 헤더가 포함되어 있습니다.
+    # 3. 상세 SEO 분석 리포트 (한글 번역 버전)
+    with st.expander("🔍 상세 SEO 분석 리포트 확인"):
+        # modules/seo.py 의 run 함수가 한글 번역본을 반환합니다.
         analysis_report = seo.run(st.session_state["script"])
         st.markdown(analysis_report)
     
     st.markdown("---")
-
     
 st.markdown('<div style="text-align: center; padding: 2rem; opacity: 0.3;">© 2026 LAST.PY_STUDIO</div>', unsafe_allow_html=True)
