@@ -52,7 +52,6 @@ st.markdown("""
 # 세션 상태 초기화
 if "script" not in st.session_state: st.session_state["script"] = ""
 if "titles" not in st.session_state: st.session_state["titles"] = []
-if "title_map" not in st.session_state: st.session_state["title_map"] = {} # 한국어-영어 제목 매핑용
 
 # --- [상단] 메인 타이틀 ---
 st.markdown("""
@@ -77,12 +76,24 @@ with btn_col:
     # 높이가 줄어든 ✨ Generate 버튼
     start_trigger = st.button("✨ Generate", type="primary", use_container_width=True)
 
+
+
+
+
+
+# if reset_trigger:
+#     session.reset()
+
+
+
+
+
 # 3. 로직 실행
 if start_trigger:
     if not question_ko.strip():
         st.warning("주제를 입력해주세요!")
     else:
-        with st.spinner("🔍 분석 및 제목 생성 중..."):
+        with st.spinner(":mag: 분석 및 제목 생성 중..."):
             tavily_client = TavilyClient(api_key=api_key)
             translation = trans.run(question_ko)
             trend_data = search.run(tavily_client, selected_topic, question_ko, translation)
@@ -92,18 +103,20 @@ if start_trigger:
             # 한국어 번역
             titles_ko = draft.translate_hooks_to_korean(titles_en)
 
-            # 세션에 한국어 제목과 매핑 데이터 저장
+            # 세션에 한국어/영어/매핑 저장
             st.session_state["titles"] = titles_ko
+            st.session_state["titles_en"] = titles_en
             st.session_state["title_map"] = dict(zip(titles_ko, titles_en))
+
             st.session_state["trends"] = trend_data
 
-# --- 제목 선택 UI (한국어 제목 노출) ---
-selected_titles_ko = components.render_title_selector(st.session_state.get("titles"))
+# --- 제목 선택 UI ---
+selected_titles = components.render_title_selector(st.session_state.get("titles"))
 
 # --- 선택된 한국어 제목 → 영어 매핑 후 script 생성 ---
-if selected_titles_ko:
-    # 한국어 제목을 영어 제목으로 다시 변환하여 AI에게 전달
-    titles_en_selected = [st.session_state["title_map"][t] for t in selected_titles_ko]
+if selected_titles:
+    # 한국어 제목을 영어 제목으로 다시 변환
+    titles_en_selected = [st.session_state["title_map"][t] for t in selected_titles]
 
     with st.spinner("✍️ 대본 작성 중..."):
         final_script = draft.generate_script(
@@ -113,6 +126,8 @@ if selected_titles_ko:
         )
         st.session_state["script"] = final_script
         st.rerun()
+
+
 
 # --- [하단] 통합 워크스페이스 ---
 if st.session_state["script"]:
