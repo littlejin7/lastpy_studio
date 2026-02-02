@@ -1,22 +1,31 @@
 import streamlit as st
 import os
 import sys
+from dotenv import load_dotenv
+from tavily import TavilyClient 
+import ollama
 
-# 모듈 경로 강제 인식
+# 현재 디렉토리를 경로에 추가하여 modules를 찾을 수 있게 함
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# 프로젝트 루트 경로를 시스템 경로에 추가하여 모듈을 잘 찾게 함
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from dotenv import load_dotenv
-from tavily import TavilyClient
-
-# 모듈 임포트
+# UI 모듈들을 정확한 경로에서 가져오기
 try:
     from modules.ui import styles, sidebar, components
-    from modules import prompts, trans, search, draft, seo
+    from modules import prompts, trans, search, draft, seo, prompts_kr
 except ImportError:
-    import styles, sidebar, components
-    import prompts, trans, search, draft, seo
+    # 경로 인식이 안 될 경우를 대비한 직접 임포트
+    from modules.ui import styles, sidebar, components
+    import modules.prompts as prompts
+    import modules.trans as trans
+    import modules.search as search
+    import modules.draft as draft
+    import modules.seo as seo
+    import modules.prompts_kr as prompts_kr
 
 load_dotenv()
 api_key = os.getenv("TAVILY_API_KEY")
@@ -76,19 +85,7 @@ with btn_col:
     # 높이가 줄어든 ✨ Generate 버튼
     start_trigger = st.button("✨ Generate", type="primary", use_container_width=True)
 
-
-
-
-
-
-# if reset_trigger:
-#     session.reset()
-
-
-
-
-
-# 3. 로직 실행
+# 3. 로직 실행 (제목 생성)
 if start_trigger:
     if not question_ko.strip():
         st.warning("주제를 입력해주세요!")
@@ -113,21 +110,34 @@ if start_trigger:
 # --- 제목 선택 UI ---
 selected_titles = components.render_title_selector(st.session_state.get("titles"))
 
-# --- 선택된 한국어 제목 → 영어 매핑 후 script 생성 ---
+# --- [핵심 수정] 선택된 제목으로 스크립트 생성 (2단계 방식 적용) ---
 if selected_titles:
     # 한국어 제목을 영어 제목으로 다시 변환
     titles_en_selected = [st.session_state["title_map"][t] for t in selected_titles]
 
-    with st.spinner("✍️ 대본 작성 중..."):
-        final_script = draft.generate_script(
+    # 1단계: 영어 초안 생성
+    with st.spinner("✍️ 1단계: 초안 작성 중... (English Draft)"):
+        draft_script_en = draft.generate_script(
             selected_persona_key,
-            titles_en_selected,         # 영어 제목 전달
+            titles_en_selected,
             st.session_state["trends"]
         )
-        st.session_state["script"] = final_script
+
+    # 2단계: 한국어 페르소나 이식 (prompts_kr 사용)
+    with st.spinner("🇰🇷 2단계: 페르소나 이식 및 한국어 패치 중..."):
+        # prompts_kr에서 강력한 오더가 담긴 프롬프트를 가져옴
+        korean_prompt = prompts_kr.get_translation_prompt(selected_persona_key, draft_script_en)
+        
+        # AI에게 최종 실행 명령 
+        res = ollama.chat(
+            model="gemma3:latest",  # 사용하시는 모델명으로 꼭 확인하세요! 
+            messages=[{"role": "user", "content": korean_prompt}]
+        )
+        final_script_ko = res["message"]["content"]
+
+        # 결과 저장 및 리로드
+        st.session_state["script"] = final_script_ko
         st.rerun()
-
-
 
 # --- [하단] 통합 워크스페이스 ---
 if st.session_state["script"]:

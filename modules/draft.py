@@ -1,6 +1,13 @@
 import ollama
 from modules.prompts import PERSONA_PROMPTS
 import re
+# ✅ [수정 1] 우리가 만든 한글 프롬프트 파일 불러오기
+try:
+    from modules.prompts_kr import get_translation_prompt
+except ImportError:
+    # 현재 폴더(.)에서 가져오도록 시도
+    from .prompts_kr import get_translation_prompt
+
 
 # [옵션 설정] 문맥 길이 확장 (중간에 말 끊김 방지용)
 AI_OPTIONS = {'num_ctx': 2000, "temperature": 0.7}
