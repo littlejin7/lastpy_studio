@@ -52,6 +52,7 @@ st.markdown("""
 # 세션 상태 초기화
 if "script" not in st.session_state: st.session_state["script"] = ""
 if "titles" not in st.session_state: st.session_state["titles"] = []
+if "title_map" not in st.session_state: st.session_state["title_map"] = {} # 한국어-영어 제목 매핑용
 
 # --- [상단] 메인 타이틀 ---
 st.markdown("""
@@ -76,6 +77,7 @@ with btn_col:
     # 높이가 줄어든 ✨ Generate 버튼
     start_trigger = st.button("✨ Generate", type="primary", use_container_width=True)
 
+# 3. 로직 실행
 if start_trigger:
     if not question_ko.strip():
         st.warning("주제를 입력해주세요!")
@@ -84,17 +86,31 @@ if start_trigger:
             tavily_client = TavilyClient(api_key=api_key)
             translation = trans.run(question_ko)
             trend_data = search.run(tavily_client, selected_topic, question_ko, translation)
-            titles = draft.generate_titles(selected_persona_key, trend_data, question_ko)
             
-            st.session_state["titles"] = titles
+            # 영어 제목 생성
+            titles_en = draft.generate_titles(selected_persona_key, trend_data, question_ko)
+            # 한국어 번역
+            titles_ko = draft.translate_hooks_to_korean(titles_en)
+
+            # 세션에 한국어 제목과 매핑 데이터 저장
+            st.session_state["titles"] = titles_ko
+            st.session_state["title_map"] = dict(zip(titles_ko, titles_en))
             st.session_state["trends"] = trend_data
 
-# 제목 선택 UI
-selected_titles = components.render_title_selector(st.session_state.get("titles"))
+# --- 제목 선택 UI (한국어 제목 노출) ---
+selected_titles_ko = components.render_title_selector(st.session_state.get("titles"))
 
-if selected_titles:
+# --- 선택된 한국어 제목 → 영어 매핑 후 script 생성 ---
+if selected_titles_ko:
+    # 한국어 제목을 영어 제목으로 다시 변환하여 AI에게 전달
+    titles_en_selected = [st.session_state["title_map"][t] for t in selected_titles_ko]
+
     with st.spinner("✍️ 대본 작성 중..."):
-        final_script = draft.generate_script(selected_persona_key, selected_titles, st.session_state["trends"])
+        final_script = draft.generate_script(
+            selected_persona_key,
+            titles_en_selected,         # 영어 제목 전달
+            st.session_state["trends"]
+        )
         st.session_state["script"] = final_script
         st.rerun()
 
