@@ -1,13 +1,6 @@
 import ollama
 from modules.prompts import PERSONA_PROMPTS
 import re
-# ✅ [수정 1] 우리가 만든 한글 프롬프트 파일 불러오기
-try:
-    from modules.prompts_kr import get_translation_prompt
-except ImportError:
-    # 현재 폴더(.)에서 가져오도록 시도
-    from .prompts_kr import get_translation_prompt
-
 
 # [옵션 설정] 문맥 길이 확장 (중간에 말 끊김 방지용)
 AI_OPTIONS = {'num_ctx': 2000, "temperature": 0.7}
@@ -42,26 +35,29 @@ def generate_titles(persona_key, trend_info, question_ko):
     clean_titles = []
     
     for line in lines:
-        clean_line = re.sub(r'^[\d\.\-\*\•\)]+\s*', '', line).strip().strip('"\'')
+        clean_line = re.sub(r'^[\\d\\.\\-\\*\\•\\)]+\\s*', '', line).strip().strip('"\'')
         if clean_line and not clean_line.lower().startswith(("here", "sure", "okay")):
             clean_titles.append(clean_line)
     
     return clean_titles[:3]
 
-# [기능 2] 영어 제목 리스트 -> 한국어 번역
-def translate_hooks_to_korean(titles_en_list):
+# [기능 2] 영어 제목 리스트 -> 한국어 번역 (원본 주제 맥락 반영 버전)
+def translate_hooks_to_korean(titles_en_list, question_ko):
     """
-    영어 제목 3개를 한 번에 받아서, 자연스러운 한국어(유튜브 스타일)로 번역
+    영어 제목들을 원본 한글 주제(question_ko)의 맥락을 고려하여 
+    자연스러운 한국어 유튜브 스타일로 번역합니다.
     """
     if not titles_en_list:
         return []
 
-    # 리스트를 하나의 문자열로 합쳐서 보냄 (효율성 UP)
     input_text = "\n".join(titles_en_list)
 
     prompt = f"""
-    You are a professional Korean YouTube Shorts Translator.
-    Translate the following English hooks into **Viral Korean (Hangul)**.
+    You are a professional Korean YouTube Shorts Translator and Strategist.
+    The user's original topic is: "{question_ko}"
+    
+    Translate the following English hooks into **Viral Korean (Hangul)**, 
+    keeping the original topic's context and nuance.
     
     [Input English Hooks]:
     {input_text}
@@ -69,8 +65,7 @@ def translate_hooks_to_korean(titles_en_list):
     [Rules]:
     1. Maintain the "Viral/Clickbait" nuance (use words like 충격, 헉, ㄷㄷ naturally).
     2. Output EXACTLY {len(titles_en_list)} lines.
-    3. **NO** conversational fillers (e.g., "Here is the translation").
-    4. **NO** numbering or bullet points. Just the Korean text.
+    3. **NO** conversational fillers or numbering. Just the Korean text.
     """
 
     res = ollama.chat(
@@ -79,26 +74,26 @@ def translate_hooks_to_korean(titles_en_list):
         options=AI_OPTIONS
     )
 
-    # 결과 파싱
+    # 결과 파싱 및 정제
     raw_content = res["message"]["content"].strip()
     lines = raw_content.split('\n')
 
     titles_ko = []
     for line in lines:
         # 번호, 특수기호 제거 및 정제
-        clean_line = re.sub(r'^[\d\.\-\*\•\)]+\s*', '', line).strip().strip('"\'')
+        clean_line = re.sub(r'^[\\d\\.\\-\\*\\•\\)]+\\s*', '', line).strip().strip('"\'')
         
-        # 잡담 필터링 (혹시 모를 AI의 말대꾸 차단)
+        # 잡담 필터링
         if clean_line and not clean_line.startswith(("Here", "Sure", "Certainly", "Translation")):
             titles_ko.append(clean_line)
 
-    # 혹시 개수가 안 맞으면 원본(영어)이라도 돌려줌 (안전장치)
+    # 개수가 안 맞거나 실패 시 원본(영어) 반환 (안전장치)
     if len(titles_ko) == 0:
         return titles_en_list
         
     return titles_ko[:3]
 
-# [기능 3] 선택된 제목으로 대본 쓰기 (루프 규칙 제거됨)
+# [기능 3] 선택된 제목으로 대본 쓰기
 def generate_script(persona_key, selected_titles, trend_info):
     target_persona = PERSONA_PROMPTS[persona_key]
     
@@ -118,7 +113,6 @@ def generate_script(persona_key, selected_titles, trend_info):
     2. Tags: 10 hashtags in a SINGLE LINE.
     """
     
-    # 기억력 옵션 추가
     res = ollama.chat(
         model="gemma3:latest", 
         messages=[{"role": "user", "content": prompt}],

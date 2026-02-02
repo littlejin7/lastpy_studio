@@ -68,7 +68,7 @@ if start_trigger:
             
             trend_data = search.run(tavily_client, selected_topic, question_ko, translation)
             titles_en = draft.generate_titles(selected_persona_key, trend_data, question_ko)
-            titles_ko = draft.translate_hooks_to_korean(titles_en)
+            titles_ko = draft.translate_hooks_to_korean(titles_en, question_ko)
 
             st.session_state["titles"] = titles_ko
             st.session_state["title_map"] = dict(zip(titles_ko, titles_en))
