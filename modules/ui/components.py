@@ -1,5 +1,6 @@
 import streamlit as st
 import re
+from utils.seo_tools import render_copy_button
 
 def render_title_selector(titles):
     """ 
@@ -133,8 +134,7 @@ def render_action_buttons(script_content):
     with col_main:
         st.markdown("<p style='font-size: 0.75rem; font-weight: 900; color: #92400e; margin-bottom: 10px;'>EDITOR</p>", unsafe_allow_html=True)
         edited_script = st.text_area("Editor", value=script_content, height=550, label_visibility="collapsed", key="unified_editor")
-        if st.button("📋 편집 내용 복사", use_container_width=True, key="copy_btn"):
-            st.toast("대본 전체가 복사되었습니다!", icon="✨")
+        render_copy_button(edited_script, "📋 편집 내용 복사")
 
     with col_info:
         st.markdown("""
