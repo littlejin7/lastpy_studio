@@ -23,45 +23,25 @@ except ImportError:
     import modules.seo as seo
     import modules.prompts_kr as prompts_kr
     from utils import seo_tools
-#from modules.ui.analyzer import render_seo_analyzer_dashboard
 
+# 환경 변수 및 API 키 설정
 load_dotenv()
 api_key = os.getenv("TAVILY_API_KEY")
 
+# 페이지 설정
 st.set_page_config(page_title="Last.py Studio", page_icon="⚡", layout="wide")
 
-# CSS 및 사이드바 적용
+# CSS 및 사이드바 적용 (버튼 CSS 등이 styles.py로 통합됨)
 styles.apply_custom_css()
 selected_persona_key = sidebar.render_sidebar()
-
-# --- [UI 개선] Generate 버튼 전용 CSS ---
-st.markdown("""
-    <style>
-    div.stButton > button {
-        height: 42px !important;
-        min-height: 42px !important;
-        line-height: 42px !important;
-        padding-top: 0px !important;
-        padding-bottom: 0px !important;
-        font-size: 0.95rem !important;
-        margin-top: 1px !important;
-    }
-    div[data-testid="column"] { display: flex; align-items: center; }
-    </style>
-""", unsafe_allow_html=True)
 
 # 세션 상태 초기화
 if "script" not in st.session_state: st.session_state["script"] = ""
 if "titles" not in st.session_state: st.session_state["titles"] = []
 if "translation" not in st.session_state: st.session_state["translation"] = ""
 
-# --- [상단] 메인 타이틀 ---
-st.markdown("""
-    <div class="playful-container">
-        <h1 style="font-size: 3rem; margin: 0;">YouTube Shorts Script Generator</h1>
-        <p style="font-size: 1.1rem; font-weight: 700; color: #92400e;">AI Script & SEO Analyzer v3.0.0</p>
-    </div>
-""", unsafe_allow_html=True)
+# --- [상단] 메인 타이틀 (components.py로 모듈화 가능) ---
+components.render_main_header()
 
 # --- [중단] 입력칸 + 버튼 섹션 ---
 input_col, btn_col = st.columns([4, 1])
@@ -84,7 +64,7 @@ if start_trigger:
         with st.spinner(":mag: 분석 및 제목 생성 중..."):
             tavily_client = TavilyClient(api_key=api_key)
             translation = trans.run(question_ko)
-            st.session_state["translation"] = translation # 다운로드 도구용 저장
+            st.session_state["translation"] = translation 
             
             trend_data = search.run(tavily_client, selected_topic, question_ko, translation)
             titles_en = draft.generate_titles(selected_persona_key, trend_data, question_ko)
@@ -109,21 +89,22 @@ if selected_titles:
         st.session_state["script"] = res["message"]["content"]
         st.rerun()
 
+# --- [하단] 통합 워크스페이스 ---
 if st.session_state["script"]:
     st.markdown("---")
     
-    # 1. AI 분석을 먼저 실행하여 실제 점수를 가져옵니다.
+    # AI 분석 실행 및 실제 점수 획득 (modules/seo.py에서 한글 번역 및 점수 추출 처리)
     with st.spinner("AI가 SEO 지표를 정밀 분석 중입니다..."):
         analysis_report, actual_score, actual_rewatch = seo.run(st.session_state["script"])
 
-    # 2. 분석된 실제 데이터를 대시보드에 전달합니다.
+    # 추출된 실제 점수를 딕셔너리에 담아 컴포넌트로 전달
     seo_display_data = {
-        "score": actual_score,    # 이제 92가 아니라 실제 점수가 들어갑니다!
-        "volume": "High",         # 검색량은 기존 검색 데이터에서 가져옵니다.
-        "rewatch": actual_rewatch # AI가 분석한 실제 재시청률 점수
+        "score": actual_score,    
+        "volume": "High",         
+        "rewatch": actual_rewatch 
     }
 
-    # 3. 통합 워크스페이스 호출 (에디터 바로 위에 분석기 위치)
+    # 워크스페이스 렌더링 (내부에 SEO 대시보드와 Editor가 순서대로 배치됨)
     updated_content = components.render_action_buttons(
         st.session_state["script"], 
         seo_data=seo_display_data
@@ -132,10 +113,11 @@ if st.session_state["script"]:
     if updated_content:
         st.session_state["script"] = updated_content
 
-    # 4. 상세 분석 리포트는 아래에 깔끔하게 숨겨둡니다.
-    with st.expander("🔍 상세 SEO 분석 리포트 전문 보기"):
+    # 상세 분석 리포트 전문 확인 (한글화된 텍스트 리포트)
+    with st.expander("🔍 상세 SEO 분석 리포트 전문 확인"):
         st.markdown(analysis_report)
     
     st.markdown("---")
-    
+
+# 푸터
 st.markdown('<div style="text-align: center; padding: 2rem; opacity: 0.3;">© 2026 LAST.PY_STUDIO</div>', unsafe_allow_html=True)

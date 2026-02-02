@@ -2,6 +2,14 @@ import streamlit as st
 import re
 from utils.seo_tools import render_copy_button
 
+def render_main_header():
+    st.markdown("""
+        <div class="playful-container">
+            <h1 style="font-size: 3rem; margin: 0;">YouTube Shorts Script Generator</h1>
+            <p style="font-size: 1.1rem; font-weight: 700; color: #92400e;">AI Script & SEO Analyzer v3.0.0</p>
+        </div>
+    """, unsafe_allow_html=True)
+
 def render_seo_dashboard(seo_score, search_vol, rewatch_rate):
     """
     [추가] SEO 분석 결과 대시보드 (3D 스타일)

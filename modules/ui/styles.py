@@ -83,6 +83,18 @@ def apply_custom_css():
         .stTabs [data-baseweb="tab-highlight-checks"] {
             background-color: #2d9a58 !important;
         }
+        
+        /* [이동됨] Generate 버튼 및 컬럼 정렬 전용 CSS */
+        div.stButton > button {
+            height: 42px !important;
+            min-height: 42px !important;
+            line-height: 42px !important;
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            font-size: 0.95rem !important;
+            margin-top: 1px !important;
+        }
+        div[data-testid="column"] { display: flex; align-items: center; }
         </style>
         """,
         unsafe_allow_html=True,
