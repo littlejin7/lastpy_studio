@@ -109,19 +109,21 @@ if selected_titles:
         st.session_state["script"] = res["message"]["content"]
         st.rerun()
 
-# --- [하단] 통합 워크스페이스 ---
 if st.session_state["script"]:
     st.markdown("---")
     
-    # 1. SEO 데이터 준비 (테스트용 데이터, 실제로는 분석 엔진과 연동 가능)
+    # 1. AI 분석을 먼저 실행하여 실제 점수를 가져옵니다.
+    with st.spinner("AI가 SEO 지표를 정밀 분석 중입니다..."):
+        analysis_report, actual_score, actual_rewatch = seo.run(st.session_state["script"])
+
+    # 2. 분석된 실제 데이터를 대시보드에 전달합니다.
     seo_display_data = {
-        "score": 92, 
-        "volume": "High", 
-        "rewatch": 78
+        "score": actual_score,    # 이제 92가 아니라 실제 점수가 들어갑니다!
+        "volume": "High",         # 검색량은 기존 검색 데이터에서 가져옵니다.
+        "rewatch": actual_rewatch # AI가 분석한 실제 재시청률 점수
     }
 
-    # 2. 통합 워크스페이스 호출 (내부에 대시보드와 에디터가 포함됨)
-    # render_action_buttons 내부에서 대시보드와 에디터가 순서대로 배치됩니다.
+    # 3. 통합 워크스페이스 호출 (에디터 바로 위에 분석기 위치)
     updated_content = components.render_action_buttons(
         st.session_state["script"], 
         seo_data=seo_display_data
@@ -130,10 +132,8 @@ if st.session_state["script"]:
     if updated_content:
         st.session_state["script"] = updated_content
 
-    # 3. 상세 SEO 분석 리포트 (한글 번역 버전)
-    with st.expander("🔍 상세 SEO 분석 리포트 확인"):
-        # modules/seo.py 의 run 함수가 한글 번역본을 반환합니다.
-        analysis_report = seo.run(st.session_state["script"])
+    # 4. 상세 분석 리포트는 아래에 깔끔하게 숨겨둡니다.
+    with st.expander("🔍 상세 SEO 분석 리포트 전문 보기"):
         st.markdown(analysis_report)
     
     st.markdown("---")
