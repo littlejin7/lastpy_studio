@@ -12,7 +12,7 @@ from modules.draft import AI_OPTIONS
 # UI 모듈 및 핵심 로직 임포트
 try:
     from modules.ui import styles, sidebar, components
-    from modules import prompts, trans, search, draft, seo, prompts_kr
+    from modules import prompts, trans, search, draft, seo, prompts_kr, reset
     from utils import seo_tools
 except ImportError:
     from modules.ui import styles, sidebar, components
@@ -22,6 +22,7 @@ except ImportError:
     import modules.draft as draft
     import modules.seo as seo
     import modules.prompts_kr as prompts_kr
+    import modules.reset as reset
     from utils import seo_tools
 
 
@@ -55,7 +56,16 @@ with input_col:
         question_ko = st.text_input("주제 입력", placeholder=placeholder_text, key="input_topic", label_visibility="collapsed")
 
 with btn_col:
-    start_trigger = st.button("✨ Generate", type="primary", use_container_width=True)
+    gen_btn, reset_btn = st.columns(2)
+    with gen_btn:
+        start_trigger = st.button("✨ Generate", type="primary", use_container_width=True)
+    with reset_btn:  #리셋버튼 추가 
+        reset_trigger = st.button("🔄Reset", type="secondary", use_container_width=True)
+
+# Reset 버튼 처리
+if reset_trigger:
+    reset.reset_session()
+    st.rerun()
 
 # 1단계: 분석 및 제목 생성
 if start_trigger:
