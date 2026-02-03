@@ -81,6 +81,8 @@ def render_sidebar():
         selected_persona = st.radio(
             "페르소나 설정", options=persona_list, index=1  # 기본값: 3040
         )
+        
+            
 
         st.markdown("---")
         st.caption("v3.0.0 Powered by Gemini & Tavily")

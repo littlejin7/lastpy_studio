@@ -8,7 +8,7 @@ import ollama
 
 # 현재 디렉토리를 경로에 추가하여 modules를 찾을 수 있게 함
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
+from modules.draft import AI_OPTIONS
 # UI 모듈 및 핵심 로직 임포트
 try:
     from modules.ui import styles, sidebar, components
@@ -23,6 +23,7 @@ except ImportError:
     import modules.seo as seo
     import modules.prompts_kr as prompts_kr
     from utils import seo_tools
+
 
 # 환경 변수 및 API 키 설정
 load_dotenv()
@@ -58,6 +59,13 @@ with btn_col:
 
 # 1단계: 분석 및 제목 생성
 if start_trigger:
+    # ✅ [여기에 추가] 버튼 누르자마자 과거 결과물들 초기화!
+    st.session_state["script"] = ""       # 이전 대본 삭제
+    st.session_state["titles"] = []       # 이전 제목들 삭제
+    st.session_state["title_map"] = {}    # 제목 매핑 정보 삭제
+    st.session_state["translation"] = ""  # 이전 번역 삭제
+    st.session_state["trends"] = ""       # 이전 트렌드 삭제
+    
     if not question_ko.strip():
         st.warning("주제를 입력해주세요!")
     else:
@@ -85,7 +93,12 @@ if selected_titles:
 
     with st.spinner("🇰🇷 2단계: 한국어 패치 중..."):
         korean_prompt = prompts_kr.get_translation_prompt(selected_persona_key, draft_script_en)
-        res = ollama.chat(model="gemma3:latest", messages=[{"role": "user", "content": korean_prompt}])
+        res = ollama.chat(
+    model="gemma3:latest", 
+    messages=[{"role": "user", "content": korean_prompt}],
+    options=AI_OPTIONS,  # ✅ 여기도 적용!
+    keep_alive=0         # ✅ 여기도 적용!
+)
         st.session_state["script"] = res["message"]["content"]
         st.rerun()
 
