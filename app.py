@@ -9,19 +9,22 @@ import ollama
 # 현재 디렉토리를 경로에 추가하여 modules를 찾을 수 있게 함
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from modules.draft import AI_OPTIONS
+
 # UI 모듈 및 핵심 로직 임포트
 try:
-    from modules.ui import styles, sidebar, components
-    from modules import prompts, trans, search, draft, seo, prompts_kr
+    # [수정] styles_light, styles_dark, reset 추가
+    from modules.ui import styles, sidebar, components, styles_light, styles_dark 
+    from modules import prompts, trans, search, draft, seo, prompts_kr, reset
     from utils import seo_tools
 except ImportError:
-    from modules.ui import styles, sidebar, components
+    from modules.ui import styles, sidebar, components, styles_light, styles_dark 
     import modules.prompts as prompts
     import modules.trans as trans
     import modules.search as search
     import modules.draft as draft
     import modules.seo as seo
     import modules.prompts_kr as prompts_kr
+    import modules.reset as reset
     from utils import seo_tools
 
 
@@ -32,19 +35,41 @@ api_key = os.getenv("TAVILY_API_KEY")
 # 페이지 설정
 st.set_page_config(page_title="Last.py Studio", page_icon="⚡", layout="wide")
 
-# CSS 및 사이드바 적용 (버튼 CSS 등이 styles.py로 통합됨)
+# ==============================================================================
+# 🎨 UI 스타일 및 모드 설정 (기존 styles.apply_custom_css 위치)
+# ==============================================================================
+
+# 1. 기본 스타일 적용
 styles.apply_custom_css()
+
+# 2. 다크모드 스위치 (사이드바)
+with st.sidebar:
+    mode = st.selectbox("🌗 화면 모드 선택", ["Yellow Mode", "Dark Mode"], key="mode_select")
+
+# 3. 모드별 스타일 덮어쓰기
+if mode == "Dark Mode":
+    styles_dark.apply_dark_css()
+else:
+    styles_light.apply_light_css()
+
+# 4. 사이드바 렌더링 (페르소나 선택 등 기존 기능 유지)
 selected_persona_key = sidebar.render_sidebar()
 
-# 세션 상태 초기화
+
+# ==============================================================================
+# ⚙️ 세션 상태 초기화 & 헤더
+# ==============================================================================
 if "script" not in st.session_state: st.session_state["script"] = ""
 if "titles" not in st.session_state: st.session_state["titles"] = []
 if "translation" not in st.session_state: st.session_state["translation"] = ""
 
-# --- [상단] 메인 타이틀 (components.py로 모듈화 가능) ---
+# --- [상단] 메인 타이틀 ---
 components.render_main_header()
 
-# --- [중단] 입력칸 + 버튼 섹션 ---
+
+# ==============================================================================
+# ⌨️ 입력칸 & 버튼 섹션 (기존 레이아웃 유지 + 리셋 버튼 기능 연결)
+# ==============================================================================
 input_col, btn_col = st.columns([4, 1])
 with input_col:
     cat_col, text_col = st.columns([1, 2])
@@ -55,16 +80,25 @@ with input_col:
         question_ko = st.text_input("주제 입력", placeholder=placeholder_text, key="input_topic", label_visibility="collapsed")
 
 with btn_col:
-    start_trigger = st.button("✨ Generate", type="primary", use_container_width=True)
+    # 버튼 레이아웃 유지 (Generate / Reset)
+    gen_btn, reset_btn = st.columns(2)
+    with gen_btn:
+        start_trigger = st.button("✨ Generate", type="primary", use_container_width=True)
+    with reset_btn:
+        reset_trigger = st.button("🔄 Reset", type="secondary", use_container_width=True)
 
-# 1단계: 분석 및 제목 생성
+# [Reset 기능] 버튼 클릭 시 모듈 호출하여 초기화 후 리런
+if reset_trigger:
+    reset.reset_session()
+    st.rerun()
+
+
+# ==============================================================================
+# 🚀 메인 로직 (기존 코드 100% 동일)
+# ==============================================================================
 if start_trigger:
-    # ✅ [여기에 추가] 버튼 누르자마자 과거 결과물들 초기화!
-    st.session_state["script"] = ""       # 이전 대본 삭제
-    st.session_state["titles"] = []       # 이전 제목들 삭제
-    st.session_state["title_map"] = {}    # 제목 매핑 정보 삭제
-    st.session_state["translation"] = ""  # 이전 번역 삭제
-    st.session_state["trends"] = ""       # 이전 트렌드 삭제
+    # [수정] 기존의 긴 초기화 코드 -> reset 모듈 함수로 대체
+    reset.reset_session()
     
     if not question_ko.strip():
         st.warning("주제를 입력해주세요!")
@@ -85,7 +119,7 @@ if start_trigger:
 # 제목 선택 UI
 selected_titles = components.render_title_selector(st.session_state.get("titles"))
 
-# 2단계: 스크립트 생성
+# 2단계: 스크립트 생성 (기존 코드 유지)
 if selected_titles:
     titles_en_selected = [st.session_state["title_map"][t] for t in selected_titles]
     with st.spinner("✍️ 1단계: 초안 작성 중..."):
@@ -94,30 +128,30 @@ if selected_titles:
     with st.spinner("🇰🇷 2단계: 한국어 패치 중..."):
         korean_prompt = prompts_kr.get_translation_prompt(selected_persona_key, draft_script_en)
         res = ollama.chat(
-    model="gemma3:latest", 
-    messages=[{"role": "user", "content": korean_prompt}],
-    options=AI_OPTIONS,  # ✅ 여기도 적용!
-    keep_alive=0         # ✅ 여기도 적용!
-)
+            model="gemma3:latest", 
+            messages=[{"role": "user", "content": korean_prompt}],
+            options=AI_OPTIONS,
+            keep_alive=0
+        )
         st.session_state["script"] = res["message"]["content"]
         st.rerun()
 
-# --- [하단] 통합 워크스페이스 ---
+# --- [하단] 통합 워크스페이스 (기존 코드 유지) ---
 if st.session_state["script"]:
     st.markdown("---")
     
-    # AI 분석 실행 및 실제 점수 획득 (modules/seo.py에서 한글 번역 및 점수 추출 처리)
+    # AI 분석 실행
     with st.spinner("AI가 SEO 지표를 정밀 분석 중입니다..."):
         analysis_report, actual_score, actual_rewatch = seo.run(st.session_state["script"])
 
-    # 추출된 실제 점수를 딕셔너리에 담아 컴포넌트로 전달
+    # 점수 데이터 패키징
     seo_display_data = {
         "score": actual_score,    
         "volume": "High",         
         "rewatch": actual_rewatch 
     }
 
-    # 워크스페이스 렌더링 (내부에 SEO 대시보드와 Editor가 순서대로 배치됨)
+    # 워크스페이스 렌더링
     updated_content = components.render_action_buttons(
         st.session_state["script"], 
         seo_data=seo_display_data
@@ -126,7 +160,7 @@ if st.session_state["script"]:
     if updated_content:
         st.session_state["script"] = updated_content
 
-    # 상세 분석 리포트 전문 확인 (한글화된 텍스트 리포트)
+    # 상세 리포트
     with st.expander("🔍 상세 SEO 분석 리포트 전문 확인"):
         st.markdown(analysis_report)
     

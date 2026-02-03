@@ -2,16 +2,36 @@ import streamlit as st
 
 def apply_light_css():
     """
-    [라이트 모드 전용] 
-    지혜원 조장님이 선호하시는 노란색 Playful 테마입니다.
+    [라이트 모드 전용 - 최종 수정]
+    1. 폰트 적용 대상 수정: '*' (전체) -> 텍스트 태그만 지정
+       (아이콘이 'keyboard_double' 글자로 깨지는 현상 원천 차단)
+    2. 기존 노란색 테마 디자인 100% 유지
     """
     font_css = """
         @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap');
-        * { font-family: 'Fredoka', sans-serif !important; }
+        
+        /* [핵심 수정] '*'를 지우고, 진짜 글씨 태그에만 폰트를 적용합니다. */
+        h1, h2, h3, h4, h5, h6, p, a, li, label, input, textarea {
+            font-family: 'Fredoka', sans-serif !important;
+        }
     """
     st.markdown(f"""
     <style>
         {font_css}
+        
+        /* [핵심] 모든 버튼 글자 중앙 정렬 */
+        .stButton > button {{
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            height: 45px !important;
+            padding: 0 1rem !important;
+            line-height: 1 !important;
+        }}
+        .stButton > button div[data-testid="stMarkdownContainer"] p {{
+            margin: 0 !important;
+            line-height: 1 !important;
+        }}
         
         /* 1. 배경: 노란색 그라데이션 */
         .stApp {{ 
